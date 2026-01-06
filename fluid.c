@@ -70,6 +70,16 @@ void initialize_environment(Cell *environment)
     }
 }
 
+void update_cell(Cell cell, Cell environment[], Vector2 mouse_position, int cell_type, int fill_level)
+{
+    mouse_position = GetMousePosition();
+    int cell_x = mouse_position.x / CELL_SIZE;
+    int cell_y = mouse_position.y / CELL_SIZE;
+                
+    cell = (Cell){cell_type, fill_level, cell_x, cell_y, 0};
+    environment[cell_x + cell_y*COLUMNS] = cell;
+}
+
 int main()
 {
     InitWindow(WIDTH, HEIGHT, "Simulação de fluido automata celular");
@@ -80,6 +90,8 @@ int main()
 
     Cell environment[ROWS * COLUMNS];
     initialize_environment(environment);
+
+    int del_mode = 0;
     while (!WindowShouldClose())
     {
         BeginDrawing();
@@ -88,30 +100,37 @@ int main()
         // delta de tempo para calcular com base no FPS da simulação
         delta_t = GetFrameTime();
         Cell cell;
-        // botão esquerdo coloca água
-        if(IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+
+        // modo de delete, apaga a célula clicada
+        if(del_mode)
         {
-            mouse_position = GetMousePosition();
-            int cell_x = mouse_position.x / CELL_SIZE;
-            int cell_y = mouse_position.y / CELL_SIZE;
-            
-            cell = (Cell){WATER_TYPE, 1, cell_x, cell_y, 0};
-            environment[cell_x + cell_y*COLUMNS] = cell;
+            if(IsMouseButtonDown(MOUSE_BUTTON_RIGHT) || IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+            {
+                update_cell(cell, environment, mouse_position, WATER_TYPE, 0);
+            }
         }
-        // botão direito desenha o sólido
+
+        // botão direito coloca água
         else if(IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
         {
-            mouse_position = GetMousePosition();
-            int cell_x = mouse_position.x / CELL_SIZE;
-            int cell_y = mouse_position.y / CELL_SIZE;
-            
-            cell = (Cell){SOLID_TYPE, 1, cell_x, cell_y, 0};
-            environment[cell_x + cell_y*COLUMNS] = cell;
+            update_cell(cell, environment, mouse_position, WATER_TYPE, 1);
         }
+        // botão esquerdo desenha o sólido
+        else if(IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        {
+            update_cell(cell, environment, mouse_position, SOLID_TYPE, 1);
+        }
+        // muda o modo para apagar caso clique "d" no teclado
+        if(IsKeyPressed(KEY_D))
+            del_mode = !del_mode;
+
+        //fazer os passos da simulaçãp
 
         draw_environment(environment);
         draw_grid();
         DrawFPS(10, 10);
+        
+        //printf("%d", del_mode);
         EndDrawing();
     }
 
