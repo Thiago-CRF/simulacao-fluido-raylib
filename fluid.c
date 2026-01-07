@@ -89,9 +89,8 @@ void update_cell(Cell *cell, Cell environment[], Vector2 mouse_position, int cel
     }
 }
 
-void sim_rule_1(Cell environment[])
+void sim_rule_1(Cell environment[], Cell updt_environment[])
 {
-    Cell updt_environment[ROWS*COLUMNS];
     // array temporario para armazenar as mudanças
     for(int i=0; i<ROWS*COLUMNS; i++)
     {
@@ -117,7 +116,7 @@ void sim_rule_1(Cell environment[])
 
             updt_source_cell = &updt_environment[j + COLUMNS*i];
             updt_cell_below = &updt_environment[j + COLUMNS*(i+1)];
-            
+
             float soma = (source_cell->fill_level + cell_below->fill_level);
             if(soma <= 1)
             {
@@ -152,7 +151,12 @@ void sim_rule_1(Cell environment[])
     }
 }
 
-void simulation_step(Cell environment[])
+void sim_rule_2(Cell environment[])
+{
+
+}
+
+void simulation_step(Cell environment[], Cell buffer_environment[])
 {
     /*
     Regras do automata em ordem:
@@ -167,19 +171,22 @@ void simulation_step(Cell environment[])
 
 
     */
-   sim_rule_1(environment);
+   sim_rule_1(environment, buffer_environment);
 }
 
 int main()
 {
-    InitWindow(WIDTH, HEIGHT, "Simulação de fluido automata celular");
+    InitWindow(WIDTH, HEIGHT, "Simulação de fluido com automata celular");
     SetTargetFPS(FPS);
 
     float delta_t; // delta tempo para cálculo da simulação
     Vector2 mouse_position;
     Cell cell;
 
-    Cell environment[ROWS * COLUMNS];
+    Cell *environment = (Cell*)malloc(ROWS * COLUMNS * sizeof(Cell));
+    // array buffer para armazenar mudanças com as regras
+    Cell *buffer_environment = (Cell*)malloc(ROWS * COLUMNS * sizeof(Cell));
+    // Cell environment[ROWS * COLUMNS];
     initialize_environment(environment);
 
     int del_mode = 0;
@@ -215,7 +222,7 @@ int main()
             del_mode = !del_mode;
 
         //fazer os passos da simulação
-        simulation_step(environment);
+        simulation_step(environment, buffer_environment);
 
         draw_environment(environment);
         draw_grid();
@@ -226,6 +233,8 @@ int main()
     }
 
     CloseWindow();
+    free(environment);
+    free(buffer_environment);
 
     return 0;
 }
