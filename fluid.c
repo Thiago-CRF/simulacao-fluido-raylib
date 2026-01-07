@@ -90,34 +90,65 @@ void update_cell(Cell *cell, Cell environment[], Vector2 mouse_position, int cel
 }
 
 void sim_rule_1(Cell environment[])
-{   // renderização não funciona direito com a água caindo, regra 1 não refinada
+{
+    Cell updt_environment[ROWS*COLUMNS];
+    // array temporario para armazenar as mudanças
+    for(int i=0; i<ROWS*COLUMNS; i++)
+    {
+        updt_environment[i] = environment[i];
+    }
+
     Cell *source_cell, *cell_below;
+    Cell *updt_source_cell, *updt_cell_below;
     float flow = 0;
     for(int i=0; i<ROWS; i++)
     {
         for(int j=0; j<COLUMNS; j++)
         {
-            source_cell = &environment[j + COLUMNS*(i)];
-            if(source_cell->type == SOLID_TYPE || i >= ROWS)
+            source_cell = &environment[j + COLUMNS*i];
+            if(source_cell->type == SOLID_TYPE || i == ROWS-1)
+            // pula caso a celula seja solido, ou esteja na ultima linha
                 continue;
 
             cell_below = &environment[j + COLUMNS*(i+1)];
-            if(cell_below->type == SOLID_TYPE || cell_below->fill_level > source_cell->fill_level)
+            if(cell_below->type == SOLID_TYPE || cell_below->fill_level >= source_cell->fill_level)
+            // pula caso a celula abaixo seja sólido ou a água de baixo não seja menor que a celula origem
                 continue;
 
-            if((source_cell->fill_level + cell_below->fill_level) <= 1)
+            updt_source_cell = &updt_environment[j + COLUMNS*i];
+            updt_cell_below = &updt_environment[j + COLUMNS*(i+1)];
+            
+            float soma = (source_cell->fill_level + cell_below->fill_level);
+            if(soma <= 1)
             {
                 flow = source_cell->fill_level;
-                source_cell->fill_level -= flow;
-                cell_below->fill_level += flow;
+                updt_source_cell->fill_level -= flow;
+                updt_cell_below->fill_level += flow;
+            }
+            /*outra ideia é fazer um calculo diferente caso a soma seja menor que 2 * (Valor_maximo+compressao_máxima)
+            sendo o valor: (valor_maximo*valor_maximo + compressao_maxima*soma) / (valor_máximo + comressao_maxima).
+            transferindo mais para baixo caso a soma de ambos seja menos que o valor máximo que eles juntos 
+            podem receber com compressão, tranferindo água mais rápido para baixo. Como por exemplo:
+            # FEITO # */
+            else if(soma < (2 * 1+MAX_COMPRESSION))
+            {   // valor máximo: 1. Por enquanto quero que o valor máximo seja sempre 1, por isso não criei
+                // uma variavel ou uma constante para mudar o valor máximo no código todo
+                flow = (1 + MAX_COMPRESSION * soma) / (1 + MAX_COMPRESSION);
+                updt_source_cell->fill_level -= flow;
+                updt_cell_below->fill_level += flow;
             }
             else
             {
-                flow = (source_cell->fill_level + cell_below->fill_level + MAX_COMPRESSION) / 2;
-                source_cell->fill_level -= flow;
-                cell_below->fill_level += flow;
+                flow = (soma + MAX_COMPRESSION) / 2;
+                updt_source_cell->fill_level -= flow;
+                updt_cell_below->fill_level += flow;
             }
         }
+    }
+    // atualiza o array original com as mudanças
+    for(int i=0; i<ROWS*COLUMNS; i++)
+    {
+        environment[i] = updt_environment[i];
     }
 }
 
