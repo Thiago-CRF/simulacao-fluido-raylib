@@ -6,6 +6,7 @@ mudando o frametime na simulação, fazendo que seja o dobro
 
 #include "raylib.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 #define FPS 100
 #define WIDTH 900
@@ -47,14 +48,35 @@ void draw_cell(Cell cell)
 {
     int pixel_x = cell.x * CELL_SIZE;
     int pixel_y = cell.y * CELL_SIZE;
-    if(cell.type == WATER_TYPE && cell.fill_level > 0.005)
+
+    if(cell.type == WATER_TYPE && cell.fill_level < 0.005)
     {
-        DrawRectangle(pixel_x, pixel_y, CELL_SIZE, CELL_SIZE, WATER_BLUE);
+        DrawRectangle(pixel_x, pixel_y, CELL_SIZE, CELL_SIZE, BLACK);
+        return;
     }
-    else if(cell.type == SOLID_TYPE)
+    if(cell.type == SOLID_TYPE)
     {
         DrawRectangle(pixel_x, pixel_y, CELL_SIZE, CELL_SIZE, WHITE);
+        return;
     }
+    else
+    {
+        if(cell.fill_level >= 1)
+            DrawRectangle(pixel_x, pixel_y, CELL_SIZE, CELL_SIZE, WATER_BLUE);
+
+        /* ainda preciso diferenciar quando pode desenhar ela pela metade, e quando não pode
+        Quero que desenhe ela pela metade quando não tiver nada em cima e quando não estiver caindo
+        
+        Desenhar ela cheia, mesmo se tiver metade, caso esteja caindo ou esteja com outra agua em cima*/
+        else //if()
+        {
+            int water_height = cell.fill_level * CELL_SIZE;
+            int empty_height = CELL_SIZE - water_height;
+            DrawRectangle(pixel_x, (pixel_y + empty_height), CELL_SIZE, water_height, WATER_BLUE);
+            
+        }
+    }
+    
 }
 
 void draw_environment(Cell environment[])
@@ -152,8 +174,114 @@ void sim_rule_1(Cell environment[], Cell updt_environment[])
 }
 
 void sim_rule_2(Cell environment[], Cell updt_environment[])
-{
+{   // TODO: refinar regra 2, parece que estou perdendo volume de água
+// array temporario para armazenar as mudanças
+    for(int i=0; i<ROWS*COLUMNS; i++)
+    {
+        updt_environment[i] = environment[i];
+    }
 
+    Cell *source_cell, *right_cell, *left_cell;
+    Cell *updt_source_cell, *updt_right_cell, *updt_left_cell;
+    Cell *cell_below;
+    float flow_out = 0, flow_r = 0, flow_l = 0;
+    for(int i=0; i<ROWS; i++)
+    {
+        for(int j=0; j<COLUMNS; j++)
+        {
+            source_cell = &environment[j + COLUMNS*i];
+            if(source_cell->type == SOLID_TYPE)
+                continue;
+
+            /* Precisa verificar se o lado direito ou esquerdo está bloqueado, 
+            sendo solido ou fim da tela, para transferir só para um lado ou para ambos*/
+
+            // se tiver no fim da tela, não verifica, tendo que completar toda regra 1 antes
+            if(i != ROWS-1)
+            {
+                // se ainda puder ir para baixo, não calcula a transferencia lateral
+                cell_below = &environment[j + COLUMNS*(i+1)];
+                if(cell_below->fill_level < source_cell->fill_level && cell_below->type == WATER_TYPE)
+                    continue;
+            }
+
+            updt_source_cell = &updt_environment[j + COLUMNS*i];
+            // caso esteja na esquerda da tela, flui só para direita
+            if(j == 0)
+            {   
+                updt_right_cell = &updt_environment[(j+1) + COLUMNS*i];
+                right_cell = &environment[(j+1) + COLUMNS*i];
+                if(right_cell->type == SOLID_TYPE || right_cell->fill_level >= source_cell->fill_level)
+                    continue;
+
+                // calcula o fluxo e transfere apenas para direita
+                flow_out = source_cell->fill_level / 3;
+                flow_r = flow_out;
+                updt_source_cell->fill_level -= flow_out;
+                updt_right_cell->fill_level += flow_r;
+            }
+
+            // caso esteja na direita da tela, flui só para esquerda
+            else if(j == COLUMNS-1)
+            {
+                updt_left_cell = &updt_environment[(j-1) + COLUMNS*i];
+                left_cell = &environment[(j-1) + COLUMNS*i];
+                if(left_cell->type == SOLID_TYPE || left_cell->fill_level >= source_cell->fill_level)
+                    continue;
+
+                // calcula o fluxo e transfere apenas para esquerda
+                flow_out = source_cell->fill_level / 3;
+                flow_l = flow_out;
+                updt_source_cell->fill_level -= flow_out;
+                updt_left_cell->fill_level += flow_l;
+            }
+            else 
+            {
+                right_cell = &environment[(j+1) + COLUMNS*i];
+                left_cell = &environment[(j-1) + COLUMNS*i];
+
+                updt_right_cell = &updt_environment[(j+1) + COLUMNS*i];
+                updt_left_cell = &updt_environment[(j-1) + COLUMNS*i];
+                // se ambas as laterais forem sólido, não faz nada
+                if(right_cell->type == SOLID_TYPE && left_cell->type == SOLID_TYPE)
+                    continue;
+
+                if(right_cell->type == WATER_TYPE && left_cell->type == WATER_TYPE)
+                {
+                    // faz o calcula para transferir as duas, transfere 1/4 para ambas e pula
+                    flow_out = source_cell->fill_level / 2;
+                    flow_l = flow_out / 2;
+                    flow_r = flow_out / 2;
+
+                    updt_source_cell->fill_level -= flow_out;
+                    updt_right_cell->fill_level += flow_r;
+                    updt_left_cell->fill_level += flow_l;
+                    continue;
+                }
+                if(right_cell->type == WATER_TYPE)
+                {
+                    // calcula para o lado direito apenas
+                    flow_out = source_cell->fill_level / 3;
+                    flow_r = flow_out;
+                    updt_source_cell->fill_level -= flow_out;
+                    updt_right_cell->fill_level += flow_r;
+                }
+                else if(left_cell->type == WATER_TYPE)
+                {
+                    // calcula para o lado esquerdo apenas
+                    flow_out = source_cell->fill_level / 3;
+                    flow_l = flow_out;
+                    updt_source_cell->fill_level -= flow_out;
+                    updt_left_cell->fill_level += flow_l;
+                }
+            }
+        }
+    }
+    // atualiza o array original com as mudanças
+    for(int i=0; i<ROWS*COLUMNS; i++)
+    {
+        environment[i] = updt_environment[i];
+    }
 }
 
 void simulation_step(Cell environment[], Cell buffer_environment[])
@@ -167,11 +295,20 @@ void simulation_step(Cell environment[], Cell buffer_environment[])
         se a soma dos dois é menor ou igual que o valor máximo(1), transfere tudo
         se é maior, transfere a (soma + valor máximo de compressão) / 2
 
-    Regra #2: Liquido flui para esquerda e direita:
-
+    Regra #2: Liquido flui para esquerda e direita, além de ser líquido:
+        - só transferir se a célula do lado tenha menos que a origem
+        - deve fluir para direita e esquerda na mesma iteração
+        - só pode ir para os lados quando não pode mais ir para baixo
+        - verificando para onde pode fluir e calculando a quantidade para fluir
+        - fluindo mais para a celula vizinha caso só possa fluir para um lado,
+        - quantia para fluir é menor se for só para um lado, e maior se for para os dois
+        - se puder transferir para ambos os lados: transfere 1/4 para cada lado
+        - se puder transferir para os dois lados: transfere 1/3 para o lado
 
     */
    sim_rule_1(environment, buffer_environment);
+   // TODO: refinar regra 2, parece que estou perdendo volume de água
+   sim_rule_2(environment, buffer_environment);
 }
 
 int main()
