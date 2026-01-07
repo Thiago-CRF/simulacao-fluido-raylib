@@ -151,7 +151,7 @@ void sim_rule_1(Cell environment[], Cell updt_environment[])
     }
 }
 
-void sim_rule_2(Cell environment[])
+void sim_rule_2(Cell environment[], Cell updt_environment[])
 {
 
 }
