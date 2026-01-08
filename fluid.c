@@ -20,7 +20,7 @@ mudando o frametime na simulação, fazendo que seja o dobro
 #define WATER_TYPE 0
 #define MAX_COMPRESSION 0.25
 
-#define WATER_BLUE (Color){69,189,245,255}
+#define WATER_BLUE (Color){81,190,240,255}
 #define DEEP_BLUE (Color){5,58,117,255}
 
 typedef struct
@@ -55,12 +55,12 @@ void draw_grid()
     }
 }
 
-void draw_cell(Cell cell)
+void draw_cell(Cell cell, unsigned char fill)
 {
     int pixel_x = cell.x * CELL_SIZE;
     int pixel_y = cell.y * CELL_SIZE;
 
-    if(cell.type == WATER_TYPE && cell.fill_level < 0.0005)
+    if(cell.type == WATER_TYPE && cell.fill_level < 0.005)
     {
         DrawRectangle(pixel_x, pixel_y, CELL_SIZE, CELL_SIZE, BLACK);
         return;
@@ -69,16 +69,15 @@ void draw_cell(Cell cell)
     {
         DrawRectangle(pixel_x, pixel_y, CELL_SIZE, CELL_SIZE, WHITE);
         return;
-    }
-    /* ainda preciso diferenciar quando pode desenhar ela pela metade, e quando não pode
-    Quero que desenhe ela pela metade quando não tiver nada em cima e quando não estiver caindo
-        
-    Desenhar ela cheia, mesmo se tiver metade, caso esteja caindo ou esteja com outra agua em cima*/
-    
+    }    
     Color interpolated_color = get_interpolate_color(WATER_BLUE, DEEP_BLUE, cell.fill_level);
 
     if(cell.fill_level >= 1)
     {
+        double percentage = (cell.fill_level - 1);
+        if(percentage > 0.33)
+            percentage = 0.33;
+        Color interpolated_color = get_interpolate_color(DEEP_BLUE, BLACK, percentage);
         DrawRectangle(pixel_x, pixel_y, CELL_SIZE, CELL_SIZE, interpolated_color);
         return;
     }
@@ -86,8 +85,11 @@ void draw_cell(Cell cell)
     {
         DrawRectangle(pixel_x, pixel_y, CELL_SIZE, CELL_SIZE, interpolated_color);
     }
+    else if(fill == 1) // tem água maior que 0.005 acima dessa célula;
+    {
+        DrawRectangle(pixel_x, pixel_y, CELL_SIZE, CELL_SIZE, interpolated_color);
+    }
     else
-    //if(não tem água acima da célula)
     {
         // desenha a água no nível que ela está
         int water_height = cell.fill_level * CELL_SIZE;
@@ -99,7 +101,34 @@ void draw_cell(Cell cell)
 
 void draw_environment(Cell environment[])
 {
-    for(int i=0; i<ROWS*COLUMNS; i++)
+    for(int i=0; i<ROWS; i++)
+    {
+        for(int j=0; j<COLUMNS; j++)
+        {
+            if(environment[j + COLUMNS*i].fill_level > 0 && environment[j + COLUMNS*i].fill_level < 0.005)
+            {
+                environment[i].fill_level = 0;
+            }
+            // diz para preencher caso tenha água em cima maior que 0.005
+            if(i==0)
+                draw_cell(environment[j+COLUMNS*i], 0);
+            else if(environment[j+COLUMNS*(i-1)].type == SOLID_TYPE)
+            {
+                draw_cell(environment[j+COLUMNS*i], 0);
+                environment[j+COLUMNS*i].flow_direction = -1;
+                continue;
+            }
+
+            else if(environment[j+COLUMNS*(i-1)].fill_level > 0.005)
+                draw_cell(environment[j+COLUMNS*i], 1);
+            else
+                draw_cell(environment[j+COLUMNS*i], 0);
+
+            environment[j+COLUMNS*i].flow_direction = -1;
+        }   
+    }
+    
+    /*for(int i=0; i<ROWS*COLUMNS; i++)
     {
         // corrige valores de fluido antes de desenhar
         if(environment[i].fill_level > 0 && environment[i].fill_level < 0.0005)
@@ -107,10 +136,10 @@ void draw_environment(Cell environment[])
             environment[i].fill_level = 0;
         }
 
-        draw_cell(environment[i]);
+        draw_cell(environment[i], fill);
         // reseta as direções após desenhar
         environment[i].flow_direction = -1;
-    }
+    }   */
 }
 
 void initialize_environment(Cell environment[])
