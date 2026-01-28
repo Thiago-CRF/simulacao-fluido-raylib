@@ -11,8 +11,8 @@ mudando o frametime na simulação, fazendo que seja o dobro
 #define FPS 50
 #define WIDTH 900
 #define HEIGHT 600
-#define GRID_THICK 2
-#define CELL_SIZE 20
+#define GRID_THICK 1
+#define CELL_SIZE 15
 #define COLUMNS WIDTH/CELL_SIZE
 #define ROWS HEIGHT/CELL_SIZE
 
@@ -107,7 +107,7 @@ void draw_environment(Cell environment[])
         {
             if(environment[j + COLUMNS*i].fill_level > 0 && environment[j + COLUMNS*i].fill_level < 0.005)
             {
-                environment[i].fill_level = 0;
+                environment[j + COLUMNS*i].fill_level = 0;
             }
             // diz para preencher caso tenha água em cima maior que 0.005
             if(i==0)
